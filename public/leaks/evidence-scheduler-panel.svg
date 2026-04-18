@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <rect width="1280" height="720" fill="#f0f3f8"/>
+  <rect x="0" y="0" width="1280" height="82" fill="#2d67d8"/>
+  <text x="32" y="50" fill="#e9f2ff" font-family="Segoe UI, sans-serif" font-size="32">HPC Resource Console (Simulation)</text>
+  <rect x="160" y="170" width="960" height="420" rx="8" fill="#ffffff" stroke="#c9d4e7"/>
+  <text x="190" y="220" fill="#263a59" font-family="Segoe UI, sans-serif" font-size="42">ansys</text>
+  <rect x="190" y="260" width="460" height="104" rx="8" fill="#f8fafc" stroke="#d3dde9"/>
+  <text x="220" y="316" fill="#2e4669" font-family="Segoe UI, sans-serif" font-size="36">ansys-cluster-01</text>
+  <text x="220" y="352" fill="#5b6f8f" font-family="Segoe UI, sans-serif" font-size="24">10.240.0.11 - 10.240.0.29</text>
+  <rect x="760" y="260" width="300" height="66" rx="6" fill="#edf3ff" stroke="#d3dde9"/>
+  <text x="790" y="303" fill="#37588a" font-family="Segoe UI, sans-serif" font-size="26">Queue: Active</text>
+  <text x="190" y="560" fill="#7c8da8" font-family="Segoe UI, sans-serif" font-size="18">Synthetic panel for portal media rendering tests.</text>
+</svg>

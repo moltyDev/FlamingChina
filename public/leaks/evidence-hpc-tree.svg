@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <rect width="1280" height="720" fill="#1b1b1b"/>
+  <rect x="24" y="24" width="1232" height="72" rx="8" fill="#2a2a2a" stroke="#ff6f1e" stroke-opacity="0.45"/>
+  <text x="48" y="68" fill="#ffd8a8" font-family="Consolas, monospace" font-size="28">SIMULATED HPC DESKTOP TREE</text>
+  <rect x="24" y="116" width="320" height="560" fill="#232323" stroke="#ff6f1e" stroke-opacity="0.35"/>
+  <rect x="360" y="116" width="896" height="560" fill="#141414" stroke="#ff6f1e" stroke-opacity="0.35"/>
+  <text x="44" y="156" fill="#ffc078" font-family="Consolas, monospace" font-size="18">NODE-GROUP-A</text>
+  <text x="44" y="190" fill="#ffb366" font-family="Consolas, monospace" font-size="16">NODE-041</text>
+  <text x="44" y="220" fill="#ffb366" font-family="Consolas, monospace" font-size="16">NODE-042</text>
+  <text x="44" y="250" fill="#ffb366" font-family="Consolas, monospace" font-size="16">NODE-043</text>
+  <text x="44" y="280" fill="#ffb366" font-family="Consolas, monospace" font-size="16">WORKER-17</text>
+  <text x="44" y="310" fill="#ffb366" font-family="Consolas, monospace" font-size="16">WORKER-18</text>
+  <text x="390" y="156" fill="#ffd8a8" font-family="Consolas, monospace" font-size="18">FILES (SIMULATED)</text>
+  <text x="390" y="196" fill="#ffad66" font-family="Consolas, monospace" font-size="16">analyze_run_001.sh</text>
+  <text x="390" y="224" fill="#ffad66" font-family="Consolas, monospace" font-size="16">mesh_pipeline.cfg</text>
+  <text x="390" y="252" fill="#ffad66" font-family="Consolas, monospace" font-size="16">job_batch_alpha.yaml</text>
+  <text x="390" y="280" fill="#ffad66" font-family="Consolas, monospace" font-size="16">solver_checkpoint.dat</text>
+  <text x="390" y="308" fill="#ffad66" font-family="Consolas, monospace" font-size="16">runtime_memo_redacted.txt</text>
+  <text x="390" y="664" fill="#ff8f4a" font-family="Consolas, monospace" font-size="14">Fictional training artifact for UI testing only</text>
+</svg>

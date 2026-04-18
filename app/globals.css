@@ -1,0 +1,315 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-0: #020202;
+  --bg-1: #090202;
+  --bg-2: #1a0502;
+  --ember: #ff851f;
+  --ember-bright: #ffb84f;
+  --inferno: #ff3d00;
+  --cinder: #2b0904;
+  --blood: #640b07;
+  --glass: rgba(28, 7, 3, 0.55);
+  --border: rgba(255, 117, 33, 0.34);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background:
+    radial-gradient(circle at 50% 120%, rgba(255, 97, 13, 0.2), transparent 56%),
+    radial-gradient(circle at 15% -10%, rgba(255, 54, 0, 0.16), transparent 35%),
+    radial-gradient(circle at 88% 110%, rgba(198, 32, 9, 0.18), transparent 45%),
+    linear-gradient(155deg, var(--bg-0), var(--bg-1) 40%, var(--bg-2));
+  color: #fff3dc;
+  font-family: var(--font-body), sans-serif;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -9;
+  opacity: 0.2;
+  background: url('/flaming-china-theme.png') center 18% / cover no-repeat;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -8;
+  opacity: 0.14;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 100% 3px;
+  pointer-events: none;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.portal-shell {
+  position: relative;
+  min-height: 100vh;
+  padding-bottom: 4.75rem;
+}
+
+.glass-card {
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  background:
+    linear-gradient(160deg, rgba(35, 8, 4, 0.7), rgba(10, 4, 3, 0.78));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 105, 35, 0.08),
+    0 0 30px rgba(255, 74, 15, 0.16);
+}
+
+.glow-line {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 130, 65, 0.15),
+    0 0 36px rgba(255, 86, 19, 0.26);
+}
+
+.section-title {
+  font-family: var(--font-headline), sans-serif;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.inferno-title {
+  font-family: var(--font-headline), sans-serif;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  line-height: 0.95;
+  background: linear-gradient(180deg, #ffe2ab 0%, #ffae40 38%, #ff6a0d 70%, #ad2600 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(0, 0, 0, 0.8);
+  text-shadow:
+    0 0 18px rgba(255, 122, 26, 0.5),
+    0 6px 28px rgba(148, 20, 1, 0.7);
+}
+
+.inferno-hero {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 94, 29, 0.48);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 157, 82, 0.12),
+    0 0 45px rgba(255, 74, 14, 0.28);
+}
+
+.inferno-hero-media {
+  position: absolute;
+  inset: 0;
+  background: url('/flaming-china-theme.png') center center / cover no-repeat;
+  filter: saturate(1.08) contrast(1.05);
+  transform: scale(1.03);
+}
+
+.inferno-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.28), rgba(0, 0, 0, 0.78) 58%, rgba(0, 0, 0, 0.86)),
+    radial-gradient(circle at 50% 72%, rgba(255, 87, 18, 0.36), transparent 42%);
+}
+
+.inferno-hero-content {
+  position: relative;
+  z-index: 2;
+}
+
+.inferno-emblem {
+  display: inline-block;
+  border: 1px solid rgba(255, 145, 65, 0.42);
+  background: linear-gradient(145deg, rgba(60, 19, 5, 0.76), rgba(18, 7, 4, 0.8));
+  box-shadow: 0 0 22px rgba(255, 86, 19, 0.2);
+  color: #ffdca2;
+  padding: 0.5rem 0.9rem;
+  border-radius: 0.6rem;
+  font-family: var(--font-headline), sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.classified-stamp {
+  border: 2px solid rgba(255, 62, 45, 0.78);
+  color: rgba(255, 92, 77, 0.97);
+  padding: 0.15rem 0.6rem;
+  letter-spacing: 0.13em;
+  font-weight: 700;
+  transform: rotate(-8deg);
+  display: inline-block;
+  text-transform: uppercase;
+}
+
+.preview-blur {
+  filter: blur(4px);
+  user-select: none;
+}
+
+.restricted-border {
+  border: 1px solid rgba(255, 121, 44, 0.5);
+  box-shadow: inset 0 0 0 1px rgba(255, 100, 22, 0.22), 0 0 24px rgba(255, 69, 11, 0.22);
+}
+
+.glitch-text {
+  position: relative;
+  color: #ff8c7d;
+  text-transform: uppercase;
+  animation: jitter 0.12s infinite;
+}
+
+.glitch-text::before,
+.glitch-text::after {
+  content: attr(data-text);
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.glitch-text::before {
+  color: #ff3e00;
+  clip-path: inset(0 0 52% 0);
+  transform: translate(-2px, -1px);
+  opacity: 0.9;
+}
+
+.glitch-text::after {
+  color: #ffc573;
+  clip-path: inset(43% 0 0 0);
+  transform: translate(2px, 1px);
+  opacity: 0.6;
+}
+
+.live-ticker-track {
+  display: inline-flex;
+  gap: 2.2rem;
+  white-space: nowrap;
+  animation: scroll-feed 38s linear infinite;
+}
+
+.fire-logo {
+  width: 124px;
+  height: 124px;
+  border-radius: 999px;
+  position: relative;
+  border: 1px solid rgba(255, 136, 76, 0.58);
+  background: radial-gradient(circle, rgba(255, 116, 34, 0.6) 0%, rgba(98, 17, 7, 0.24) 46%, transparent 70%);
+  box-shadow: 0 0 60px rgba(255, 76, 11, 0.48);
+  animation: flicker 2.2s ease-in-out infinite;
+}
+
+.fire-logo::before,
+.fire-logo::after {
+  content: "";
+  position: absolute;
+  border-radius: 999px;
+  inset: 20%;
+  background: radial-gradient(circle at 45% 45%, rgba(255, 190, 100, 0.75), rgba(255, 53, 0, 0.2));
+}
+
+.fire-logo::after {
+  inset: 34%;
+  background: radial-gradient(circle at 45% 50%, #ffe7b7, rgba(255, 123, 26, 0.15));
+}
+
+.ember-dot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 135, 56, 0.7);
+  box-shadow: 0 0 14px rgba(255, 106, 17, 0.72);
+  animation: ember-rise var(--duration, 6s) linear infinite;
+}
+
+.doc-view {
+  line-height: 1.8;
+  font-family: var(--font-mono), monospace;
+}
+
+.doc-view .redacted {
+  background: #050505;
+  color: #050505;
+  border-radius: 2px;
+  padding: 0 0.2rem;
+  position: relative;
+}
+
+.doc-view .redacted::after {
+  content: "REDACTED";
+  position: absolute;
+  left: 0.2rem;
+  top: 0;
+  color: rgba(255, 72, 72, 0.82);
+  font-size: 0.66rem;
+  letter-spacing: 0.09em;
+}
+
+.subtle-scroll {
+  animation: subtle-scroll 18s ease-in-out infinite alternate;
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  15% { opacity: 0.92; }
+  18% { opacity: 0.78; }
+  22% { opacity: 0.98; }
+  66% { transform: scale(1.014); }
+  79% { opacity: 0.85; }
+}
+
+@keyframes ember-rise {
+  0% {
+    transform: translate3d(0, 32px, 0) scale(0.65);
+    opacity: 0;
+  }
+  20% { opacity: 0.78; }
+  100% {
+    transform: translate3d(0, -120px, 0) scale(1.2);
+    opacity: 0;
+  }
+}
+
+@keyframes scroll-feed {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes jitter {
+  0% { transform: translate(0, 0); }
+  20% { transform: translate(-1px, 1px); }
+  40% { transform: translate(1px, -1px); }
+  60% { transform: translate(-1px, -1px); }
+  80% { transform: translate(1px, 1px); }
+  100% { transform: translate(0, 0); }
+}
+
+@keyframes subtle-scroll {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-8px); }
+}
+
+@media (max-width: 768px) {
+  .live-ticker-track {
+    animation-duration: 54s;
+  }
+
+  .inferno-title {
+    -webkit-text-stroke: 0.7px rgba(0, 0, 0, 0.8);
+  }
+}

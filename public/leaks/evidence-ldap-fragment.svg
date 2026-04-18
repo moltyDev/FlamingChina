@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <rect width="1280" height="720" fill="#111318"/>
+  <text x="40" y="56" fill="#ffe0b3" font-family="Consolas, monospace" font-size="28">SIMULATED DIRECTORY EXPORT</text>
+  <rect x="24" y="84" width="1232" height="612" fill="#0d1117" stroke="#ff6f1e" stroke-opacity="0.35"/>
+  <text x="48" y="130" fill="#88c0ff" font-family="Consolas, monospace" font-size="20">dn: ou=Group,dc=cluster-sim,dc=internal</text>
+  <text x="48" y="164" fill="#c7d7ff" font-family="Consolas, monospace" font-size="18">objectClass: organizationalUnit</text>
+  <text x="48" y="220" fill="#88c0ff" font-family="Consolas, monospace" font-size="20">dn: ou=People,dc=cluster-sim,dc=internal</text>
+  <text x="48" y="254" fill="#c7d7ff" font-family="Consolas, monospace" font-size="18">ou: People</text>
+  <text x="48" y="310" fill="#88c0ff" font-family="Consolas, monospace" font-size="20">dn: cn=Manager,dc=cluster-sim,dc=internal</text>
+  <text x="48" y="344" fill="#c7d7ff" font-family="Consolas, monospace" font-size="18">uid: manager-sim</text>
+  <text x="48" y="378" fill="#ff8a8a" font-family="Consolas, monospace" font-size="18">userPassword: [[REDACTED]]</text>
+  <text x="48" y="434" fill="#88c0ff" font-family="Consolas, monospace" font-size="20">dn: ou=Compute,dc=cluster-sim,dc=internal</text>
+  <text x="48" y="468" fill="#c7d7ff" font-family="Consolas, monospace" font-size="18">ou: Compute</text>
+  <text x="48" y="680" fill="#ff9d57" font-family="Consolas, monospace" font-size="14">Synthetic sample. Not real infrastructure data.</text>
+</svg>
