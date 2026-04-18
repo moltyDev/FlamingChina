@@ -1,6 +1,7 @@
 import { Connection, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 
 const DEFAULT_SOLANA_RPC = "https://api.mainnet-beta.solana.com";
+const DEFAULT_PAYMENT_RECEIVER = "3XqcxjYy14VBtYdDZ4oyiEN6W8zKCxd6uej2WDPnRiBQ";
 const RPC_FALLBACKS = [
   DEFAULT_SOLANA_RPC,
   "https://rpc.ankr.com/solana",
@@ -52,12 +53,8 @@ function getRequiredHolderPercent(): number {
 export function getAccessPaymentReceiver(): string {
   const address =
     process.env.FC_SOLANA_PAYMENT_ADDRESS?.trim() ||
-    process.env.NEXT_PUBLIC_FC_SOLANA_PAYMENT_ADDRESS?.trim();
-  if (!address) {
-    throw new Error(
-      "Server is missing FC_SOLANA_PAYMENT_ADDRESS (or NEXT_PUBLIC_FC_SOLANA_PAYMENT_ADDRESS).",
-    );
-  }
+    process.env.NEXT_PUBLIC_FC_SOLANA_PAYMENT_ADDRESS?.trim() ||
+    DEFAULT_PAYMENT_RECEIVER;
   try {
     return new PublicKey(address).toBase58();
   } catch {
