@@ -30,7 +30,8 @@ export default function HomePage() {
             Unlock Restricted Intelligence
           </h1>
           <p className="mt-4 max-w-2xl text-sm text-orange-50/90 sm:text-base">
-            Access opens automatically after a confirmed 5 SOL payment.
+            Two clearance routes are available: Phantom holder verification (1% supply) or a
+            confirmed 5 SOL unlock transfer.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
@@ -60,9 +61,9 @@ export default function HomePage() {
         <article className="glass-card rounded-xl p-6">
           <h2 className="section-title text-3xl text-orange-100">How To Access</h2>
           <ol className="mt-3 space-y-2 text-sm uppercase tracking-[0.12em] text-orange-100/85">
-            <li>1. Open the unlock terminal to get address, amount, and memo.</li>
-            <li>2. Send exactly 5 SOL to the listed wallet with the memo.</li>
-            <li>3. Keep the page open while unlock is auto-confirmed on-chain.</li>
+            <li>1. Open the unlock terminal and choose holder verify or payment unlock.</li>
+            <li>2. Holder route: connect Phantom and sign challenge for a 1% supply check.</li>
+            <li>3. Payment route: send exactly 5 SOL with memo, then wait for auto-confirmation.</li>
           </ol>
         </article>
       </section>
@@ -74,7 +75,9 @@ export default function HomePage() {
             <article key={item.title} className="restricted-border rounded-lg bg-black/40 p-4">
               <p className="section-title text-xl text-orange-100">{item.title}</p>
               <p className="preview-blur mt-2 text-sm text-orange-50/85">{item.detail}</p>
-              <p className="mt-2 text-[11px] uppercase tracking-[0.12em] text-red-200">Payment unlock required</p>
+              <p className="mt-2 text-[11px] uppercase tracking-[0.12em] text-red-200">
+                Holder or payment unlock required
+              </p>
             </article>
           ))}
         </div>

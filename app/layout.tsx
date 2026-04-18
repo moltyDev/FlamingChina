@@ -27,7 +27,7 @@ const mono = Share_Tech_Mono({
 export const metadata: Metadata = {
   title: "Flaming China Intelligence Portal",
   description:
-    "Solana payment-gated classified intelligence portal with wallet-based access control.",
+    "Classified portal with dual Solana unlock routes: Phantom holder verification or direct payment unlock.",
 };
 
 export default function RootLayout({

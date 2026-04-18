@@ -29,16 +29,73 @@ export function getRequiredAccessPaymentSol(): number {
   return parsed;
 }
 
+function getHolderMintAddress(): string {
+  const mint =
+    process.env.FC_SOLANA_MINT_ADDRESS?.trim() ||
+    process.env.NEXT_PUBLIC_FC_SOLANA_MINT_ADDRESS?.trim();
+  if (!mint) {
+    throw new Error(
+      "Server is missing FC_SOLANA_MINT_ADDRESS (or NEXT_PUBLIC_FC_SOLANA_MINT_ADDRESS).",
+    );
+  }
+  return mint;
+}
+
+function getRequiredHolderPercent(): number {
+  const parsed = Number(process.env.FC_HOLDER_THRESHOLD_PERCENT || "1");
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 1;
+  }
+  return parsed;
+}
+
 export function getAccessPaymentReceiver(): string {
-  const address = process.env.FC_SOLANA_PAYMENT_ADDRESS?.trim();
+  const address =
+    process.env.FC_SOLANA_PAYMENT_ADDRESS?.trim() ||
+    process.env.NEXT_PUBLIC_FC_SOLANA_PAYMENT_ADDRESS?.trim();
   if (!address) {
-    throw new Error("Server is missing FC_SOLANA_PAYMENT_ADDRESS.");
+    throw new Error(
+      "Server is missing FC_SOLANA_PAYMENT_ADDRESS (or NEXT_PUBLIC_FC_SOLANA_PAYMENT_ADDRESS).",
+    );
   }
   try {
     return new PublicKey(address).toBase58();
   } catch {
     throw new Error("FC_SOLANA_PAYMENT_ADDRESS is not a valid Solana public key.");
   }
+}
+
+async function fetchSolanaTokenStats(params: {
+  rpcUrl: string;
+  walletAddress: string;
+  mintAddress: string;
+}): Promise<{ balance: number; totalSupply: number }> {
+  const connection = new Connection(params.rpcUrl, "confirmed");
+  const owner = new PublicKey(params.walletAddress);
+  const mint = new PublicKey(params.mintAddress);
+  const [parsedAccounts, tokenSupply] = await Promise.all([
+    connection.getParsedTokenAccountsByOwner(owner, { mint }),
+    connection.getTokenSupply(mint),
+  ]);
+
+  const balance = parsedAccounts.value.reduce((sum, accountInfo) => {
+    const parsedAmount = accountInfo.account.data.parsed?.info?.tokenAmount?.uiAmount;
+    return sum + (typeof parsedAmount === "number" ? parsedAmount : 0);
+  }, 0);
+
+  const supplyFromUiAmount = tokenSupply.value.uiAmount;
+  const supplyFromString = Number(tokenSupply.value.uiAmountString);
+  const totalSupply =
+    typeof supplyFromUiAmount === "number"
+      ? supplyFromUiAmount
+      : Number.isFinite(supplyFromString)
+        ? supplyFromString
+        : 0;
+
+  return {
+    balance,
+    totalSupply,
+  };
 }
 
 function readAccountKeyBase58(input: unknown): string | null {
@@ -327,4 +384,49 @@ export async function verifySolanaAccessPayment(params: {
   throw lastError instanceof Error
     ? lastError
     : new Error("Unable to validate Solana payment transaction.");
+}
+
+export async function verifySolanaHolderAccess(params: { walletAddress: string }) {
+  const mintAddress = getHolderMintAddress();
+  const requiredPercent = getRequiredHolderPercent();
+  const rpcCandidates = getSolanaRpcCandidates();
+  let lastError: unknown = null;
+
+  for (const rpcUrl of rpcCandidates) {
+    try {
+      const stats = await fetchSolanaTokenStats({
+        rpcUrl,
+        walletAddress: params.walletAddress,
+        mintAddress,
+      });
+
+      const threshold = (stats.totalSupply * requiredPercent) / 100;
+
+      return {
+        granted: stats.balance >= threshold,
+        balance: stats.balance,
+        threshold,
+        totalSupply: stats.totalSupply,
+        requiredPercent,
+      };
+    } catch (error) {
+      lastError = error;
+      if (isRpcForbiddenError(error)) {
+        continue;
+      }
+      if (rpcUrl !== rpcCandidates[rpcCandidates.length - 1]) {
+        continue;
+      }
+    }
+  }
+
+  if (isRpcForbiddenError(lastError)) {
+    throw new Error(
+      "Solana RPC access forbidden. Update FC_SOLANA_RPC_URL with a valid key/allowlist.",
+    );
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Unable to verify on-chain holder balance.");
 }

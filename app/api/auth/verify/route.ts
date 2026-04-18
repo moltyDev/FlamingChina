@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   buildPaymentMemo,
+  buildWalletChallengeMessage,
   getNonceCookieName,
   getNonceCookieOptions,
   getSessionCookieName,
@@ -9,11 +10,20 @@ import {
   verifyNonceChallengeToken,
 } from "@/lib/auth";
 import { SessionPayload } from "@/lib/types";
-import { verifySolanaAccessPayment } from "@/lib/web3";
+import { verifyWalletSignature } from "@/lib/signature";
+import { verifySolanaAccessPayment, verifySolanaHolderAccess } from "@/lib/web3";
+import {
+  UnlockMethod,
+  getServerDefaultUnlockMethod,
+  isServerUnlockMethodEnabled,
+} from "@/lib/unlock-config";
 
 interface VerifyRequestBody {
-  nonce?: string;
+  method?: UnlockMethod;
   chain?: string;
+  nonce?: string;
+  walletAddress?: string;
+  signature?: string;
 }
 
 const consumedPaymentSignatures = new Set<string>();
@@ -25,14 +35,28 @@ function clearNonceCookie(response: NextResponse) {
   });
 }
 
+function resolveRequestedMethod(bodyMethod?: UnlockMethod): UnlockMethod {
+  return bodyMethod || getServerDefaultUnlockMethod();
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = ((await request.json().catch(() => ({}))) || {}) as VerifyRequestBody;
+    const chain = "solana" as const;
 
-    if (body.chain && body.chain !== "solana") {
+    if (body.chain && body.chain !== chain) {
       return NextResponse.json(
-        { message: "Only Solana payment unlock is supported." },
+        { message: "Only Solana unlock methods are supported." },
         { status: 400 },
+      );
+    }
+
+    const requestedMethod = resolveRequestedMethod(body.method);
+
+    if (!isServerUnlockMethodEnabled(requestedMethod)) {
+      return NextResponse.json(
+        { message: `Unlock method '${requestedMethod}' is disabled on this deployment.` },
+        { status: 403 },
       );
     }
 
@@ -41,29 +65,110 @@ export async function POST(request: NextRequest) {
 
     if (!challenge) {
       return NextResponse.json(
-        { message: "Unlock session expired. Refresh page to generate a new payment memo." },
+        { message: "Unlock session expired. Refresh and try again." },
         { status: 401 },
+      );
+    }
+
+    if (challenge.method !== requestedMethod) {
+      return NextResponse.json(
+        { message: "Unlock method changed. Request a fresh unlock challenge." },
+        { status: 409 },
       );
     }
 
     if (body.nonce && body.nonce.trim() !== challenge.nonce) {
       const deny = NextResponse.json(
-        { message: "Unlock memo mismatch. Refresh and try again." },
+        { message: "Unlock nonce mismatch. Refresh and try again." },
         { status: 401 },
       );
       clearNonceCookie(deny);
       return deny;
     }
 
-    const expectedMemo = buildPaymentMemo({
-      nonce: challenge.nonce,
-    });
+    if (requestedMethod === "holder") {
+      const walletAddress = body.walletAddress?.trim();
+      const signature = body.signature?.trim();
 
-    // Critical unlock logic:
-    // 1) Server issues a unique invoice memo in a short-lived cookie.
-    // 2) User sends SOL manually to the configured receiver with that memo.
-    // 3) Server scans recent receiver transactions and validates memo + amount.
-    // 4) When a valid payment is detected, server creates unlock session automatically.
+      if (!walletAddress || !signature) {
+        return NextResponse.json(
+          { message: "Wallet address and signature are required for holder unlock." },
+          { status: 400 },
+        );
+      }
+
+      if (!challenge.walletAddress || challenge.walletAddress !== walletAddress) {
+        return NextResponse.json(
+          { message: "Holder challenge wallet mismatch. Reconnect and sign again." },
+          { status: 401 },
+        );
+      }
+
+      const challengeMessage = buildWalletChallengeMessage({
+        walletAddress,
+        chain,
+        nonce: challenge.nonce,
+      });
+
+      const signatureValid = verifyWalletSignature({
+        chain,
+        walletAddress,
+        message: challengeMessage,
+        signature,
+      });
+
+      if (!signatureValid) {
+        const deny = NextResponse.json(
+          { message: "Invalid wallet signature." },
+          { status: 401 },
+        );
+        clearNonceCookie(deny);
+        return deny;
+      }
+
+      const holderResult = await verifySolanaHolderAccess({ walletAddress });
+
+      if (!holderResult.granted) {
+        return NextResponse.json(
+          {
+            granted: false,
+            method: "holder",
+            balance: holderResult.balance,
+            threshold: holderResult.threshold,
+            totalSupply: holderResult.totalSupply,
+            requiredPercent: holderResult.requiredPercent,
+            message: `ACCESS DENIED. Hold at least ${holderResult.requiredPercent}% of token supply to unlock documents.`,
+          },
+          { status: 403 },
+        );
+      }
+
+      const sessionPayload: SessionPayload = {
+        walletAddress,
+        role: "holder",
+        chain,
+        tokenBalance: holderResult.balance,
+        requiredHolderThreshold: holderResult.threshold,
+      };
+
+      const token = await issueHolderSession(sessionPayload);
+      const response = NextResponse.json({
+        granted: true,
+        method: "holder",
+        balance: holderResult.balance,
+        threshold: holderResult.threshold,
+        totalSupply: holderResult.totalSupply,
+        requiredPercent: holderResult.requiredPercent,
+        role: "holder",
+      });
+
+      response.cookies.set(getSessionCookieName(), token, getSessionCookieOptions());
+      clearNonceCookie(response);
+      return response;
+    }
+
+    const expectedMemo = buildPaymentMemo({ nonce: challenge.nonce });
+
     const payment = await verifySolanaAccessPayment({
       expectedMemo,
       notBeforeUnix: Math.floor(challenge.createdAt / 1000),
@@ -74,6 +179,7 @@ export async function POST(request: NextRequest) {
         {
           granted: false,
           pending: true,
+          method: "payment",
           amountPaidSol: payment.amountSol,
           requiredSol: payment.requiredSol,
           receiverAddress: payment.receiverAddress,
@@ -89,6 +195,7 @@ export async function POST(request: NextRequest) {
         {
           granted: false,
           pending: false,
+          method: "payment",
           amountPaidSol: payment.amountSol,
           requiredSol: payment.requiredSol,
           receiverAddress: payment.receiverAddress,
@@ -106,6 +213,7 @@ export async function POST(request: NextRequest) {
         {
           granted: false,
           pending: false,
+          method: "payment",
           amountPaidSol: payment.amountSol,
           requiredSol: payment.requiredSol,
           receiverAddress: payment.receiverAddress,
@@ -121,7 +229,7 @@ export async function POST(request: NextRequest) {
     const sessionPayload: SessionPayload = {
       walletAddress: payment.walletAddress,
       role: "paid",
-      chain: "solana",
+      chain,
       accessPaymentSol: payment.amountSol,
       paymentTxSignature: payment.txSignature,
     };
@@ -130,6 +238,7 @@ export async function POST(request: NextRequest) {
     const response = NextResponse.json({
       granted: true,
       pending: false,
+      method: "payment",
       amountPaidSol: payment.amountSol,
       requiredSol: payment.requiredSol,
       receiverAddress: payment.receiverAddress,
@@ -143,7 +252,7 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Payment verification failed.";
+      error instanceof Error ? error.message : "Unlock verification failed.";
 
     return NextResponse.json({ message }, { status: 500 });
   }

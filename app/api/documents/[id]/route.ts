@@ -67,7 +67,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const token = request.cookies.get(getSessionCookieName())?.value;
   const session = await verifySessionToken(token);
 
-  if (!session || session.role !== "paid") {
+  if (!session || (session.role !== "paid" && session.role !== "holder")) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 

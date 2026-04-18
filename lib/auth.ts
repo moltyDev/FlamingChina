@@ -1,12 +1,15 @@
 import { SignJWT, jwtVerify } from "jose";
 import type { JWTPayload } from "jose";
 import { ChainKind, SessionPayload } from "@/lib/types";
+import { UnlockMethod } from "@/lib/unlock-config";
 
 interface NonceChallengePayload {
   chain: ChainKind;
   nonce: string;
   createdAt: number;
-  purpose: "payment-intent";
+  method: UnlockMethod;
+  walletAddress?: string;
+  purpose: "unlock-intent";
 }
 
 const SESSION_COOKIE_NAME = "fc_portal_session";
@@ -54,6 +57,21 @@ export function buildPaymentMemo(params: {
   return `FC-ACCESS:${params.nonce}`;
 }
 
+export function buildWalletChallengeMessage(params: {
+  walletAddress: string;
+  chain: ChainKind;
+  nonce: string;
+}): string {
+  return [
+    "Flaming China Intelligence Portal",
+    "Sign this message to verify wallet ownership for holder unlock.",
+    "This signature does not approve transactions.",
+    `Wallet: ${params.walletAddress}`,
+    `Chain: ${params.chain}`,
+    `Nonce: ${params.nonce}`,
+  ].join("\n");
+}
+
 export async function issueHolderSession(payload: SessionPayload): Promise<string> {
   return new SignJWT(payload as SessionPayload & JWTPayload)
     .setProtectedHeader({ alg: "HS256" })
@@ -83,16 +101,26 @@ export async function verifyNonceChallengeToken(
     const { payload } = await jwtVerify(token, secret);
 
     if (
-      payload.purpose === "payment-intent" &&
+      payload.purpose === "unlock-intent" &&
       payload.chain === "solana" &&
       typeof payload.nonce === "string" &&
-      typeof payload.createdAt === "number"
+      typeof payload.createdAt === "number" &&
+      (payload.method === "holder" || payload.method === "payment")
     ) {
+      if (payload.method === "holder" && typeof payload.walletAddress !== "string") {
+        return null;
+      }
+
       return {
-        purpose: "payment-intent",
+        purpose: "unlock-intent",
         chain: payload.chain,
         nonce: payload.nonce,
         createdAt: payload.createdAt,
+        method: payload.method,
+        walletAddress:
+          typeof payload.walletAddress === "string"
+            ? payload.walletAddress
+            : undefined,
       };
     }
 
@@ -123,6 +151,22 @@ export async function verifySessionToken(token?: string | null): Promise<Session
         chain: payload.chain,
         accessPaymentSol: payload.accessPaymentSol,
         paymentTxSignature: payload.paymentTxSignature,
+      };
+    }
+
+    if (
+      payload.role === "holder" &&
+      payload.chain === "solana" &&
+      typeof payload.walletAddress === "string" &&
+      typeof payload.tokenBalance === "number" &&
+      typeof payload.requiredHolderThreshold === "number"
+    ) {
+      return {
+        walletAddress: payload.walletAddress,
+        role: "holder",
+        chain: payload.chain,
+        tokenBalance: payload.tokenBalance,
+        requiredHolderThreshold: payload.requiredHolderThreshold,
       };
     }
 

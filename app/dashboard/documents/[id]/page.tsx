@@ -15,7 +15,7 @@ export default async function DocumentPage({ params }: PageProps) {
   const token = cookies().get(getSessionCookieName())?.value;
   const session = await verifySessionToken(token);
 
-  if (!session || session.role !== "paid") {
+  if (!session || (session.role !== "paid" && session.role !== "holder")) {
     redirect("/unlock");
   }
 

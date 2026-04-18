@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  Connection,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-  SystemProgram,
-  Transaction,
-  TransactionInstruction,
-} from "@solana/web3.js";
-import { Buffer } from "buffer";
+import { Connection, PublicKey } from "@solana/web3.js";
 
 const DEFAULT_SOLANA_RPC = "https://api.mainnet-beta.solana.com";
 const RPC_FALLBACKS = [
@@ -16,7 +8,6 @@ const RPC_FALLBACKS = [
   "https://rpc.ankr.com/solana",
   "https://solana.public-rpc.com",
 ];
-const MEMO_PROGRAM_ID = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr";
 
 function getPhantomProvider() {
   const provider = window.phantom?.solana || window.solana;
@@ -40,6 +31,32 @@ async function connectSolana(): Promise<string> {
   return result.publicKey.toBase58();
 }
 
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return window.btoa(binary);
+}
+
+async function signSolanaChallenge(message: string): Promise<string> {
+  const provider = getPhantomProvider();
+
+  if (!provider.signMessage) {
+    throw new Error("Phantom signMessage is unavailable.");
+  }
+
+  const encoded = new TextEncoder().encode(message);
+  const result = await provider.signMessage(encoded, "utf8");
+  const signatureBytes = result instanceof Uint8Array ? result : result.signature;
+
+  if (!signatureBytes) {
+    throw new Error("Phantom did not return a signature.");
+  }
+
+  return bytesToBase64(signatureBytes);
+}
+
 async function getSolanaConnection(): Promise<Connection> {
   let lastError: unknown = null;
 
@@ -58,63 +75,43 @@ async function getSolanaConnection(): Promise<Connection> {
     : new Error("Failed to connect to configured Solana RPC endpoint.");
 }
 
-export async function connectPhantomWallet(): Promise<string> {
-  return connectSolana();
-}
-
-export async function sendSolAccessPayment(params: {
-  walletAddress: string;
-  receiverAddress: string;
-  requiredSol: number;
-  memo: string;
-}): Promise<{ txSignature: string; walletAddress: string }> {
-  const provider = getPhantomProvider();
-  const activeAddress = await connectSolana();
-
-  if (activeAddress !== params.walletAddress) {
-    throw new Error("Connected wallet changed. Reconnect and try payment again.");
+async function readHolderTokenBalance(walletAddress: string): Promise<number> {
+  const mintAddress = process.env.NEXT_PUBLIC_FC_SOLANA_MINT_ADDRESS;
+  if (!mintAddress) {
+    return 0;
   }
 
   const connection = await getSolanaConnection();
-  const senderPubkey = new PublicKey(activeAddress);
-  const receiverPubkey = new PublicKey(params.receiverAddress);
-  const lamports = Math.max(1, Math.ceil(params.requiredSol * LAMPORTS_PER_SOL));
+  const owner = new PublicKey(walletAddress);
+  const mint = new PublicKey(mintAddress);
+  const tokenAccounts = await connection.getParsedTokenAccountsByOwner(owner, { mint });
 
-  const transaction = new Transaction().add(
-    SystemProgram.transfer({
-      fromPubkey: senderPubkey,
-      toPubkey: receiverPubkey,
-      lamports,
-    }),
-    new TransactionInstruction({
-      keys: [],
-      programId: new PublicKey(MEMO_PROGRAM_ID),
-      data: Buffer.from(params.memo, "utf8"),
-    }),
-  );
+  return tokenAccounts.value.reduce((sum, account) => {
+    const parsed = account.account.data.parsed?.info?.tokenAmount?.uiAmount;
+    return sum + (typeof parsed === "number" ? parsed : 0);
+  }, 0);
+}
 
-  transaction.feePayer = senderPubkey;
-  const latestBlockhash = await connection.getLatestBlockhash("confirmed");
-  transaction.recentBlockhash = latestBlockhash.blockhash;
+export async function connectWalletAndReadHolderBalance(): Promise<{
+  address: string;
+  balance: number | null;
+  balanceWarning?: string;
+}> {
+  const address = await connectSolana();
 
-  const sent = await provider.signAndSendTransaction(transaction);
-  const txSignature = typeof sent === "string" ? sent : sent.signature;
-
-  if (!txSignature) {
-    throw new Error("Phantom did not return a transaction signature.");
+  try {
+    const balance = await readHolderTokenBalance(address);
+    return { address, balance };
+  } catch {
+    return {
+      address,
+      balance: null,
+      balanceWarning:
+        "Client-side holder estimate unavailable (RPC policy/restriction). Server verification will still run.",
+    };
   }
+}
 
-  await connection.confirmTransaction(
-    {
-      signature: txSignature,
-      blockhash: latestBlockhash.blockhash,
-      lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-    },
-    "confirmed",
-  );
-
-  return {
-    txSignature,
-    walletAddress: activeAddress,
-  };
+export async function signWalletChallenge(message: string): Promise<string> {
+  return signSolanaChallenge(message);
 }
