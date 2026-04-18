@@ -27,7 +27,7 @@ const mono = Share_Tech_Mono({
 export const metadata: Metadata = {
   title: "Flaming China Intelligence Portal",
   description:
-    "Token-gated classified leak intelligence portal for verified $FC holders.",
+    "Solana payment-gated classified intelligence portal with wallet-based access control.",
 };
 
 export default function RootLayout({
@@ -55,8 +55,8 @@ export default function RootLayout({
                 <Link className="rounded px-2 py-1 transition hover:bg-red-950/75" href="/">
                   Briefing
                 </Link>
-                <Link className="rounded px-2 py-1 transition hover:bg-red-950/75" href="/verify">
-                  Verify
+                <Link className="rounded px-2 py-1 transition hover:bg-red-950/75" href="/unlock">
+                  Unlock
                 </Link>
                 <Link className="rounded px-2 py-1 transition hover:bg-red-950/75" href="/dashboard">
                   Vault

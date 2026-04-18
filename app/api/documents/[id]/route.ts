@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readFile } from "fs/promises";
+import path from "path";
 import { getSessionCookieName, verifySessionToken } from "@/lib/auth";
 import { getDocumentById } from "@/lib/documents";
 
@@ -65,7 +67,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const token = request.cookies.get(getSessionCookieName())?.value;
   const session = await verifySessionToken(token);
 
-  if (!session || session.role !== "holder") {
+  if (!session || session.role !== "paid") {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
@@ -79,6 +81,19 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   if (shouldDownload) {
     if (doc.format === "pdf") {
+      if (doc.assetPath) {
+        const normalized = doc.assetPath.replace(/^\/+/, "");
+        const filePath = path.join(process.cwd(), "public", normalized);
+        const binary = await readFile(filePath);
+        const bytes = new Uint8Array(binary);
+        return new NextResponse(bytes, {
+          headers: {
+            "Content-Type": "application/pdf",
+            "Content-Disposition": `attachment; filename="${doc.downloadFileName || `${doc.id}.pdf`}"`,
+          },
+        });
+      }
+
       const buffer = buildSimplePdf(doc.content);
       const bytes = new Uint8Array(buffer);
       return new NextResponse(bytes, {

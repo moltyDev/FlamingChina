@@ -58,7 +58,7 @@ export default function DashboardClient() {
 
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/verify");
+    router.push("/unlock");
   };
 
   if (loading) {

@@ -1,55 +1,48 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import {
-  buildWalletChallengeMessage,
+  buildPaymentMemo,
   getNonceCookieName,
   getNonceCookieOptions,
   issueNonceChallengeToken,
 } from "@/lib/auth";
+import { getAccessPaymentReceiver, getRequiredAccessPaymentSol } from "@/lib/web3";
 
 interface NonceRequestBody {
-  walletAddress?: string;
   chain?: string;
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as NonceRequestBody;
-    const walletAddress = body.walletAddress?.trim();
-
-    if (!walletAddress) {
-      return NextResponse.json(
-        { message: "Wallet address is required." },
-        { status: 400 },
-      );
-    }
+    const body = ((await request.json().catch(() => ({}))) || {}) as NonceRequestBody;
 
     if (body.chain && body.chain !== "solana") {
       return NextResponse.json(
-        { message: "Only Solana Phantom wallet verification is supported." },
+        { message: "Only Solana payment unlock is supported." },
         { status: 400 },
       );
     }
 
     const chain = "solana" as const;
-
     const nonce = crypto.randomBytes(16).toString("hex");
-    const challengeMessage = buildWalletChallengeMessage({
-      walletAddress,
-      chain,
+    const paymentMemo = buildPaymentMemo({
       nonce,
     });
+    const requiredSol = getRequiredAccessPaymentSol();
+    const receiverAddress = getAccessPaymentReceiver();
 
     const nonceToken = await issueNonceChallengeToken({
-      walletAddress,
       chain,
       nonce,
-      purpose: "wallet-challenge",
+      createdAt: Date.now(),
+      purpose: "payment-intent",
     });
 
     const response = NextResponse.json({
       nonce,
-      message: challengeMessage,
+      memo: paymentMemo,
+      requiredSol,
+      receiverAddress,
     });
 
     response.cookies.set(
@@ -63,7 +56,7 @@ export async function POST(request: NextRequest) {
     const message =
       error instanceof Error
         ? error.message
-        : "Unable to generate wallet challenge.";
+        : "Unable to generate payment intent.";
     return NextResponse.json({ message }, { status: 500 });
   }
 }

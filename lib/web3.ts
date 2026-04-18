@@ -1,124 +1,318 @@
-import { Connection, PublicKey } from "@solana/web3.js";
-import { Contract, JsonRpcProvider, formatUnits, isAddress } from "ethers";
-import { ChainKind } from "@/lib/types";
+import { Connection, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 
 const DEFAULT_SOLANA_RPC = "https://api.mainnet-beta.solana.com";
-
-const ERC20_ABI = [
-  "function balanceOf(address owner) view returns (uint256)",
-  "function decimals() view returns (uint8)",
-  "function totalSupply() view returns (uint256)",
+const RPC_FALLBACKS = [
+  DEFAULT_SOLANA_RPC,
+  "https://rpc.ankr.com/solana",
+  "https://solana.public-rpc.com",
 ];
-
-function getThreshold(): number {
-  const parsed = Number(process.env.FC_TOKEN_THRESHOLD || "1000");
-  return Number.isFinite(parsed) ? parsed : 1000;
-}
+const ACCESS_WINDOW_SECONDS = 60 * 20;
 
 function isRpcForbiddenError(error: unknown): boolean {
   const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
   return message.includes("403") || message.includes("forbidden") || message.includes("access forbidden");
 }
 
-async function getEthereumTokenBalance(walletAddress: string): Promise<number> {
-  const rpcUrl = process.env.FC_ETHEREUM_RPC_URL;
-  const tokenAddress = process.env.FC_ETHEREUM_TOKEN_ADDRESS;
-
-  if (!rpcUrl || !tokenAddress) {
-    throw new Error("Ethereum verification is not configured.");
-  }
-
-  if (!isAddress(walletAddress)) {
-    throw new Error("Invalid EVM wallet address.");
-  }
-
-  const provider = new JsonRpcProvider(rpcUrl);
-  const contract = new Contract(tokenAddress, ERC20_ABI, provider);
-  const [rawBalance, decimals] = await Promise.all([
-    contract.balanceOf(walletAddress),
-    contract.decimals(),
-  ]);
-
-  return Number(formatUnits(rawBalance, Number(decimals)));
-}
-
 function getSolanaRpcCandidates(): string[] {
   const configured = process.env.FC_SOLANA_RPC_URL?.trim();
-
-  if (!configured || configured === DEFAULT_SOLANA_RPC) {
-    return [DEFAULT_SOLANA_RPC];
-  }
-
-  return [configured, DEFAULT_SOLANA_RPC];
+  const candidates = [configured, ...RPC_FALLBACKS].filter(
+    (value): value is string => Boolean(value && value.trim().length > 0),
+  );
+  return Array.from(new Set(candidates));
 }
 
-async function fetchBalanceFromSolanaRpc(params: {
-  rpcUrl: string;
-  walletAddress: string;
-  mintAddress: string;
-}): Promise<{ balance: number; totalSupply: number }> {
-  let owner: PublicKey;
-  let mint: PublicKey;
+export function getRequiredAccessPaymentSol(): number {
+  const parsed = Number(process.env.FC_SOLANA_ACCESS_PRICE_SOL || "5");
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 5;
+  }
+  return parsed;
+}
 
+export function getAccessPaymentReceiver(): string {
+  const address = process.env.FC_SOLANA_PAYMENT_ADDRESS?.trim();
+  if (!address) {
+    throw new Error("Server is missing FC_SOLANA_PAYMENT_ADDRESS.");
+  }
   try {
-    owner = new PublicKey(params.walletAddress);
-    mint = new PublicKey(params.mintAddress);
+    return new PublicKey(address).toBase58();
   } catch {
-    throw new Error("Invalid Solana wallet or mint address.");
+    throw new Error("FC_SOLANA_PAYMENT_ADDRESS is not a valid Solana public key.");
   }
-
-  const connection = new Connection(params.rpcUrl, "confirmed");
-  const [parsedAccounts, tokenSupply] = await Promise.all([
-    connection.getParsedTokenAccountsByOwner(owner, { mint }),
-    connection.getTokenSupply(mint),
-  ]);
-
-  const balance = parsedAccounts.value.reduce((sum, accountInfo) => {
-    const parsed = accountInfo.account.data.parsed?.info?.tokenAmount?.uiAmount;
-    return sum + (typeof parsed === "number" ? parsed : 0);
-  }, 0);
-
-  const supplyFromUiAmount = tokenSupply.value.uiAmount;
-  const supplyFromString = Number(tokenSupply.value.uiAmountString);
-  const totalSupply =
-    typeof supplyFromUiAmount === "number"
-      ? supplyFromUiAmount
-      : Number.isFinite(supplyFromString)
-        ? supplyFromString
-        : 0;
-
-  return { balance, totalSupply };
 }
 
-async function getSolanaTokenStats(walletAddress: string): Promise<{
-  balance: number;
-  totalSupply: number;
-}> {
-  const mintAddress = process.env.FC_SOLANA_MINT_ADDRESS;
-
-  if (!mintAddress) {
-    throw new Error("Solana verification is not configured: missing FC_SOLANA_MINT_ADDRESS.");
+function readAccountKeyBase58(input: unknown): string | null {
+  if (typeof input === "string") {
+    return input;
   }
 
-  const candidates = getSolanaRpcCandidates();
-  let lastError: unknown = null;
+  if (!input || typeof input !== "object") {
+    return null;
+  }
 
-  for (const rpcUrl of candidates) {
-    try {
-      return await fetchBalanceFromSolanaRpc({
-        rpcUrl,
-        walletAddress,
-        mintAddress,
-      });
-    } catch (error) {
-      lastError = error;
+  const withPubkey = input as { pubkey?: unknown };
+  if (typeof withPubkey.pubkey === "string") {
+    return withPubkey.pubkey;
+  }
+  if (
+    withPubkey.pubkey &&
+    typeof withPubkey.pubkey === "object" &&
+    "toBase58" in withPubkey.pubkey &&
+    typeof (withPubkey.pubkey as { toBase58?: () => string }).toBase58 === "function"
+  ) {
+    return (withPubkey.pubkey as { toBase58: () => string }).toBase58();
+  }
 
-      // Continue to fallback RPC when provider forbids access.
-      if (isRpcForbiddenError(error)) {
+  if ("toBase58" in input && typeof (input as { toBase58?: () => string }).toBase58 === "function") {
+    return (input as { toBase58: () => string }).toBase58();
+  }
+
+  return null;
+}
+
+function findMemoInstructionValue(parsedInstructions: unknown[]): string | null {
+  for (const item of parsedInstructions) {
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+
+    const instruction = item as {
+      program?: string;
+      parsed?: unknown;
+    };
+
+    if (instruction.program !== "spl-memo") {
+      continue;
+    }
+
+    if (typeof instruction.parsed === "string") {
+      return instruction.parsed;
+    }
+
+    if (instruction.parsed && typeof instruction.parsed === "object") {
+      const parsedObject = instruction.parsed as {
+        memo?: unknown;
+        info?: { memo?: unknown; data?: unknown };
+      };
+
+      if (typeof parsedObject.memo === "string") {
+        return parsedObject.memo;
+      }
+      if (typeof parsedObject.info?.memo === "string") {
+        return parsedObject.info.memo;
+      }
+      if (typeof parsedObject.info?.data === "string") {
+        return parsedObject.info.data;
+      }
+    }
+  }
+
+  return null;
+}
+
+async function verifySolanaPaymentOnRpc(params: {
+  rpcUrl: string;
+  expectedMemo: string;
+  receiverAddress: string;
+  requiredLamports: number;
+  notBeforeUnix: number;
+}): Promise<{
+  granted: boolean;
+  pending: boolean;
+  amountSol: number;
+  blockTime: number | null;
+  walletAddress?: string;
+  txSignature?: string;
+  message?: string;
+}> {
+  const connection = new Connection(params.rpcUrl, "confirmed");
+  const signatures = await connection.getSignaturesForAddress(
+    new PublicKey(params.receiverAddress),
+    { limit: 80 },
+    "confirmed",
+  );
+
+  if (signatures.length === 0) {
+    return {
+      granted: false,
+      pending: true,
+      amountSol: 0,
+      blockTime: null,
+      message: "Waiting for on-chain payment to arrive.",
+    };
+  }
+
+  for (const signatureInfo of signatures) {
+    if (signatureInfo.err) {
+      continue;
+    }
+
+    if (signatureInfo.blockTime && signatureInfo.blockTime < params.notBeforeUnix - 60) {
+      continue;
+    }
+
+    const transaction = await connection.getParsedTransaction(signatureInfo.signature, {
+      commitment: "confirmed",
+      maxSupportedTransactionVersion: 0,
+    });
+
+    if (!transaction?.meta) {
+      continue;
+    }
+
+    const memoValue = findMemoInstructionValue(
+      transaction.transaction.message.instructions as unknown[],
+    );
+
+    if (!memoValue || memoValue !== params.expectedMemo) {
+      continue;
+    }
+
+    const accountKeysRaw = transaction.transaction.message.accountKeys as unknown[];
+    const accountKeys = accountKeysRaw.map((key) => readAccountKeyBase58(key));
+    const receiverIndex = accountKeys.findIndex((key) => key === params.receiverAddress);
+
+    if (receiverIndex === -1) {
+      return {
+        granted: false,
+        pending: false,
+        amountSol: 0,
+        blockTime: transaction.blockTime ?? null,
+        message: "Payment was not sent to the configured unlock wallet.",
+      };
+    }
+
+    let senderAddress: string | null = null;
+    let parsedLamports = 0;
+
+    for (const item of transaction.transaction.message.instructions as unknown[]) {
+      if (!item || typeof item !== "object") {
         continue;
       }
 
-      if (rpcUrl !== candidates[candidates.length - 1]) {
+      const instruction = item as {
+        program?: string;
+        parsed?: { type?: string; info?: { destination?: unknown; source?: unknown; lamports?: unknown } };
+      };
+
+      if (instruction.program !== "system" || !instruction.parsed) {
+        continue;
+      }
+
+      const destination = instruction.parsed.info?.destination;
+      const source = instruction.parsed.info?.source;
+      const lamportsRaw = instruction.parsed.info?.lamports;
+      const lamportsParsed =
+        typeof lamportsRaw === "number" ? lamportsRaw : Number(lamportsRaw);
+
+      if (
+        instruction.parsed.type === "transfer" &&
+        destination === params.receiverAddress &&
+        Number.isFinite(lamportsParsed)
+      ) {
+        parsedLamports = Math.max(parsedLamports, lamportsParsed);
+        if (typeof source === "string") {
+          senderAddress = source;
+        }
+      }
+    }
+
+    const receiverPre = transaction.meta.preBalances[receiverIndex] ?? 0;
+    const receiverPost = transaction.meta.postBalances[receiverIndex] ?? 0;
+    const deltaLamports = receiverPost - receiverPre;
+    const receivedLamports = Math.max(parsedLamports, deltaLamports);
+
+    if (receivedLamports < params.requiredLamports) {
+      return {
+        granted: false,
+        pending: false,
+        amountSol: receivedLamports / LAMPORTS_PER_SOL,
+        blockTime: transaction.blockTime ?? null,
+        txSignature: signatureInfo.signature,
+        message: "Payment amount is below the required SOL threshold.",
+      };
+    }
+
+    if (!senderAddress) {
+      senderAddress = accountKeys.find((key) => Boolean(key)) || null;
+    }
+
+    if (!senderAddress) {
+      return {
+        granted: false,
+        pending: false,
+        amountSol: receivedLamports / LAMPORTS_PER_SOL,
+        blockTime: transaction.blockTime ?? null,
+        txSignature: signatureInfo.signature,
+        message: "Unable to identify sender wallet for this payment.",
+      };
+    }
+
+    if (transaction.blockTime) {
+      const nowSeconds = Math.floor(Date.now() / 1000);
+      if (nowSeconds - transaction.blockTime > ACCESS_WINDOW_SECONDS) {
+        return {
+          granted: false,
+          pending: false,
+          amountSol: receivedLamports / LAMPORTS_PER_SOL,
+          blockTime: transaction.blockTime,
+          walletAddress: senderAddress,
+          txSignature: signatureInfo.signature,
+          message: "Payment is too old for a new session. Submit a fresh transfer.",
+        };
+      }
+    }
+
+    return {
+      granted: true,
+      pending: false,
+      amountSol: receivedLamports / LAMPORTS_PER_SOL,
+      blockTime: transaction.blockTime ?? null,
+      walletAddress: senderAddress,
+      txSignature: signatureInfo.signature,
+    };
+  }
+
+  return {
+    granted: false,
+    pending: true,
+    amountSol: 0,
+    blockTime: null,
+    message: "Payment not detected yet. Keep this page open.",
+  };
+}
+
+export async function verifySolanaAccessPayment(params: {
+  expectedMemo: string;
+  notBeforeUnix: number;
+}) {
+  const receiverAddress = getAccessPaymentReceiver();
+  const requiredSol = getRequiredAccessPaymentSol();
+  const requiredLamports = Math.max(1, Math.ceil(requiredSol * LAMPORTS_PER_SOL));
+  const rpcCandidates = getSolanaRpcCandidates();
+  let lastError: unknown = null;
+
+  for (const rpcUrl of rpcCandidates) {
+    try {
+      const result = await verifySolanaPaymentOnRpc({
+        rpcUrl,
+        expectedMemo: params.expectedMemo,
+        receiverAddress,
+        requiredLamports,
+        notBeforeUnix: params.notBeforeUnix,
+      });
+
+      return {
+        ...result,
+        receiverAddress,
+        requiredSol,
+      };
+    } catch (error) {
+      lastError = error;
+      if (isRpcForbiddenError(error)) {
+        continue;
+      }
+      if (rpcUrl !== rpcCandidates[rpcCandidates.length - 1]) {
         continue;
       }
     }
@@ -132,38 +326,5 @@ async function getSolanaTokenStats(walletAddress: string): Promise<{
 
   throw lastError instanceof Error
     ? lastError
-    : new Error("Unable to verify Solana token balance.");
-}
-
-export async function verifyTokenBalance(chain: ChainKind, walletAddress: string) {
-  // Security note:
-  // We ALWAYS compute token balance and supply on the backend from chain RPC calls.
-  // The client-side balance display is purely UX and is never trusted for access control.
-  if (chain === "solana") {
-    const { balance, totalSupply } = await getSolanaTokenStats(walletAddress);
-    const thresholdFromSupply = totalSupply * 0.01;
-    const threshold =
-      Number.isFinite(thresholdFromSupply) && thresholdFromSupply > 0
-        ? thresholdFromSupply
-        : getThreshold();
-
-    return {
-      balance,
-      threshold,
-      totalSupply,
-      requiredPercent: 1,
-      granted: balance >= threshold,
-    };
-  }
-
-  const balance = await getEthereumTokenBalance(walletAddress);
-  const threshold = getThreshold();
-
-  return {
-    balance,
-    threshold,
-    totalSupply: 0,
-    requiredPercent: 1,
-    granted: balance >= threshold,
-  };
+    : new Error("Unable to validate Solana payment transaction.");
 }

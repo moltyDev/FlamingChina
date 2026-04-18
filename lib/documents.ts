@@ -1,6 +1,21 @@
-import { LeakDocument } from "@/lib/types";
+﻿import { LeakDocument } from "@/lib/types";
 
 export const LEAK_DOCUMENTS: LeakDocument[] = [
+  {
+    id: "glider-x2-rcs-v42",
+    title:
+      "Hypersonic Glide Vehicle - Radar Cross Section (RCS) and Plasma Sheath Interaction (Project GLIDER-X2, Version 4.2)",
+    date: "2026-04-18",
+    classification: "Top Secret",
+    format: "pdf",
+    isSimulation: true,
+    preview:
+      "Project GLIDER-X2 Version 4.2 dossier covering radar cross section behavior and plasma sheath interaction observations.",
+    content:
+      "Project GLIDER-X2 V4.2 PDF dossier. Use download to retrieve the full source file.",
+    downloadFileName: "project-glider-x2-v4-2.pdf",
+    assetPath: "/leaks/project-glider-x2-v4-2.pdf",
+  },
   {
     id: "archive-000",
     title: "Archive Integrity Notice",
@@ -144,3 +159,4 @@ export const LEAK_DOCUMENTS: LeakDocument[] = [
 export function getDocumentById(id: string): LeakDocument | undefined {
   return LEAK_DOCUMENTS.find((doc) => doc.id === id);
 }
+

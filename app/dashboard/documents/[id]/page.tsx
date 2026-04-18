@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import ClassifiedViewer from "@/components/ClassifiedViewer";
@@ -15,8 +15,8 @@ export default async function DocumentPage({ params }: PageProps) {
   const token = cookies().get(getSessionCookieName())?.value;
   const session = await verifySessionToken(token);
 
-  if (!session || session.role !== "holder") {
-    redirect("/verify");
+  if (!session || session.role !== "paid") {
+    redirect("/unlock");
   }
 
   const doc = getDocumentById(params.id);
@@ -53,3 +53,4 @@ export default async function DocumentPage({ params }: PageProps) {
     </div>
   );
 }
+

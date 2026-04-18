@@ -35,6 +35,19 @@ export default function ClassifiedViewer({ doc }: { doc: LeakDocument }) {
 
       <div className="mt-6 doc-view space-y-3 text-orange-50/90">{lines.map(renderLine)}</div>
 
+      {doc.format === "pdf" && doc.assetPath ? (
+        <div className="mt-8 space-y-3">
+          <p className="section-title text-lg text-orange-100">PDF Preview</p>
+          <div className="overflow-hidden rounded-lg border border-orange-500/35 bg-black/35">
+            <iframe
+              src={doc.assetPath}
+              title={doc.title}
+              className="h-[680px] w-full"
+            />
+          </div>
+        </div>
+      ) : null}
+
       {doc.media && doc.media.length > 0 ? (
         <div className="mt-8 space-y-4">
           <p className="section-title text-lg text-orange-100">Evidence Media</p>

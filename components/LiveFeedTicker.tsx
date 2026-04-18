@@ -1,9 +1,9 @@
-﻿const FEED_ITEMS = [
-  "0x8d11...6Ae1 granted clearance",
+const FEED_ITEMS = [
+  "7QmPv...A8m3 payment confirmed",
   "4GfPj...mSxK unlocked Scarlet Archive",
-  "0x13B2...Cfa0 entered Top Secret vault",
-  "AjfN4...8Pz2 verified $FC threshold",
-  "0x09fE...91D7 decrypted Obsidian Cable",
+  "C6n4W...R1t9 entered Top Secret vault",
+  "AjfN4...8Pz2 payment verified on-chain",
+  "9LqfE...W2d7 decrypted Obsidian Cable",
   "3EmzA...vL21 acquired classified briefing",
 ];
 

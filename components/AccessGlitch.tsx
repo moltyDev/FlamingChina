@@ -5,7 +5,7 @@
         Access Denied
       </p>
       <p className="mt-2 text-sm uppercase tracking-[0.14em] text-red-200/80">
-        Insufficient $FC token holdings for classified clearance.
+        Required SOL payment not detected for classified clearance.
       </p>
     </div>
   );

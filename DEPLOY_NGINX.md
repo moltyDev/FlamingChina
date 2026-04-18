@@ -30,11 +30,12 @@ Create `/var/www/flamingchina/.env.production` (do not commit this file):
 ```env
 FC_JWT_SECRET=replace-with-a-long-random-secret
 FC_SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
-FC_SOLANA_MINT_ADDRESS=Bw4BayYqXifqyEBPPwAboRSrfd6w3iGuMoKtZmscpump
+FC_SOLANA_PAYMENT_ADDRESS=YOUR_SOLANA_RECEIVER_WALLET
+FC_SOLANA_ACCESS_PRICE_SOL=5
 
 NEXT_PUBLIC_FC_SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
-NEXT_PUBLIC_FC_SOLANA_MINT_ADDRESS=Bw4BayYqXifqyEBPPwAboRSrfd6w3iGuMoKtZmscpump
-NEXT_PUBLIC_FC_TOKEN_THRESHOLD=1000
+NEXT_PUBLIC_FC_SOLANA_PAYMENT_ADDRESS=YOUR_SOLANA_RECEIVER_WALLET
+NEXT_PUBLIC_FC_ACCESS_PRICE_SOL=5
 ```
 
 ## 4) Install and build
@@ -90,3 +91,4 @@ curl -I http://127.0.0.1:3000
 curl -I http://your-domain
 sudo journalctl -u flamingchina -n 200 --no-pager
 ```
+

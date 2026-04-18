@@ -1,13 +1,14 @@
-export type ChainKind = "ethereum" | "solana";
+export type ChainKind = "solana";
 
 export type ClassificationLevel = "Confidential" | "Top Secret" | "Redacted";
 export type DocumentFormat = "markdown" | "image" | "pdf";
 
 export interface SessionPayload {
   walletAddress: string;
-  role: "holder";
+  role: "paid";
   chain: ChainKind;
-  tokenBalance: number;
+  accessPaymentSol: number;
+  paymentTxSignature: string;
 }
 
 export interface DocumentMediaItem {
@@ -25,5 +26,6 @@ export interface LeakDocument {
   format?: DocumentFormat;
   isSimulation?: boolean;
   downloadFileName?: string;
+  assetPath?: string;
   media?: DocumentMediaItem[];
 }

@@ -1,61 +1,67 @@
 interface VerifyResponse {
   granted: boolean;
-  balance: number;
-  threshold: number;
-  requiredPercent?: number;
-  totalSupply?: number;
+  pending?: boolean;
+  amountPaidSol: number;
+  requiredSol: number;
+  receiverAddress?: string;
+  memo?: string;
+  txSignature?: string;
   message?: string;
 }
 
 interface ChallengeResponse {
   nonce: string;
-  message: string;
+  memo: string;
+  requiredSol: number;
+  receiverAddress: string;
 }
 
-export async function requestVerificationChallenge(
-  walletAddress: string,
-): Promise<ChallengeResponse> {
+export async function requestVerificationChallenge(): Promise<ChallengeResponse> {
   const response = await fetch("/api/auth/nonce", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ chain: "solana", walletAddress }),
+    body: JSON.stringify({ chain: "solana" }),
   });
 
   const data = (await response.json()) as ChallengeResponse & { message?: string };
 
-  if (!response.ok || !data.nonce || !data.message) {
-    throw new Error(data.message || "Failed to prepare signature challenge.");
+  if (!response.ok || !data.nonce || !data.memo || !data.receiverAddress) {
+    throw new Error(data.message || "Failed to prepare payment intent.");
   }
 
   return {
     nonce: data.nonce,
-    message: data.message,
+    memo: data.memo,
+    requiredSol: data.requiredSol,
+    receiverAddress: data.receiverAddress,
   };
 }
 
 export async function submitVerification(params: {
-  walletAddress: string;
   nonce: string;
-  signature: string;
+  chain?: "solana";
 }): Promise<VerifyResponse> {
   const response = await fetch("/api/auth/verify", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ ...params, chain: "solana" }),
+    body: JSON.stringify({ ...params, chain: params.chain || "solana" }),
   });
 
   const data = (await response.json()) as VerifyResponse;
 
-  if (!response.ok) {
+  if (!response.ok && response.status !== 202) {
     return {
       granted: false,
-      balance: data.balance || 0,
-      threshold:
-        data.threshold || Number(process.env.NEXT_PUBLIC_FC_TOKEN_THRESHOLD || "1000"),
+      pending: data.pending,
+      amountPaidSol: data.amountPaidSol || 0,
+      requiredSol: data.requiredSol || Number(process.env.NEXT_PUBLIC_FC_ACCESS_PRICE_SOL || "5"),
+      receiverAddress: data.receiverAddress,
+      memo: data.memo,
+      txSignature: data.txSignature,
       message: data.message || "ACCESS DENIED",
     };
   }

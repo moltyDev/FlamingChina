@@ -3,17 +3,18 @@ import type { JWTPayload } from "jose";
 import { ChainKind, SessionPayload } from "@/lib/types";
 
 interface NonceChallengePayload {
-  walletAddress: string;
   chain: ChainKind;
   nonce: string;
-  purpose: "wallet-challenge";
+  createdAt: number;
+  purpose: "payment-intent";
 }
 
 const SESSION_COOKIE_NAME = "fc_portal_session";
 const NONCE_COOKIE_NAME = "fc_portal_nonce";
 
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
-const NONCE_TTL_SECONDS = 60 * 5;
+const NONCE_TTL_SECONDS = 60 * 30;
+const FORCE_INSECURE_COOKIES = process.env.FC_COOKIE_SECURE === "false";
 
 const secret = new TextEncoder().encode(
   process.env.FC_JWT_SECRET || "dev-only-secret-change-me-immediately",
@@ -31,7 +32,7 @@ export function getSessionCookieOptions() {
   return {
     httpOnly: true,
     sameSite: "lax" as const,
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.NODE_ENV === "production" && !FORCE_INSECURE_COOKIES,
     path: "/",
     maxAge: SESSION_TTL_SECONDS,
   };
@@ -41,25 +42,16 @@ export function getNonceCookieOptions() {
   return {
     httpOnly: true,
     sameSite: "lax" as const,
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.NODE_ENV === "production" && !FORCE_INSECURE_COOKIES,
     path: "/",
     maxAge: NONCE_TTL_SECONDS,
   };
 }
 
-export function buildWalletChallengeMessage(params: {
-  walletAddress: string;
-  chain: ChainKind;
+export function buildPaymentMemo(params: {
   nonce: string;
 }): string {
-  return [
-    "Flaming China Intelligence Portal",
-    "Sign this message to verify wallet ownership.",
-    "This signature grants no transaction permissions.",
-    `Wallet: ${params.walletAddress}`,
-    `Chain: ${params.chain}`,
-    `Nonce: ${params.nonce}`,
-  ].join("\n");
+  return `FC-ACCESS:${params.nonce}`;
 }
 
 export async function issueHolderSession(payload: SessionPayload): Promise<string> {
@@ -91,16 +83,16 @@ export async function verifyNonceChallengeToken(
     const { payload } = await jwtVerify(token, secret);
 
     if (
-      payload.purpose === "wallet-challenge" &&
-      (payload.chain === "ethereum" || payload.chain === "solana") &&
-      typeof payload.walletAddress === "string" &&
-      typeof payload.nonce === "string"
+      payload.purpose === "payment-intent" &&
+      payload.chain === "solana" &&
+      typeof payload.nonce === "string" &&
+      typeof payload.createdAt === "number"
     ) {
       return {
-        purpose: "wallet-challenge",
+        purpose: "payment-intent",
         chain: payload.chain,
-        walletAddress: payload.walletAddress,
         nonce: payload.nonce,
+        createdAt: payload.createdAt,
       };
     }
 
@@ -119,16 +111,18 @@ export async function verifySessionToken(token?: string | null): Promise<Session
     const { payload } = await jwtVerify(token, secret);
 
     if (
-      payload.role === "holder" &&
-      (payload.chain === "ethereum" || payload.chain === "solana") &&
+      payload.role === "paid" &&
+      payload.chain === "solana" &&
       typeof payload.walletAddress === "string" &&
-      typeof payload.tokenBalance === "number"
+      typeof payload.accessPaymentSol === "number" &&
+      typeof payload.paymentTxSignature === "string"
     ) {
       return {
         walletAddress: payload.walletAddress,
-        role: "holder",
+        role: "paid",
         chain: payload.chain,
-        tokenBalance: payload.tokenBalance,
+        accessPaymentSol: payload.accessPaymentSol,
+        paymentTxSignature: payload.paymentTxSignature,
       };
     }
 
